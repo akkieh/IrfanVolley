@@ -1,263 +1,176 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
+<!DOCTYPE html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>IrfanVolley Rebuild Beta</title>
+<title>IrfanVolley Gamma</title>
 <style>
 html,body{margin:0;overflow:hidden;background:#87ceeb}
-canvas{display:block;width:100vw;height:100vh;touch-action:none}
-</style>
-</head>
-<body>
-<canvas id="g"></canvas>
+canvas{width:100vw;height:100vh;display:block;touch-action:none}
+</style></head><body><canvas id="c"></canvas>
 <script>
-const c=document.getElementById('g'),x=c.getContext('2d');
-function rs(){c.width=innerWidth;c.height=innerHeight;}rs();addEventListener('resize',rs);
+const c=document.getElementById('c'),x=c.getContext('2d');
+function rs(){c.width=innerWidth;c.height=innerHeight}rs();addEventListener('resize',rs);
 
-let state='menu',difficulty='Easy';
-const goal=15;
+let state="menu",difficulty="Easy";
+const goal=15,G=()=>c.height-90,N=()=>c.width/2;
 
-const p={x:0,y:0,r:48,vx:0,vy:0};
-const ai={x:0,y:0,r:48,vx:0,vy:0};
-const ball={x:0,y:0,r:18,vx:0,vy:0};
-
+const p={x:0,y:0,r:48,vx:0,vy:0},ai={x:0,y:0,r:48,vx:0,vy:0};
+const b={x:0,y:0,r:18,vx:0,vy:0};
 let ps=0,as=0;
-let L=false,R=false,J=false;
 
-const G=()=>c.height-90;
-const NX=()=>c.width/2;
+let touchStartX=0,touchStartY=0,dragDX=0;
 
 function reset(dir=1){
  p.x=c.width*.25;p.y=G();
  ai.x=c.width*.75;ai.y=G();
  p.vx=p.vy=ai.vx=ai.vy=0;
- ball.x=c.width/2;ball.y=140;
- ball.vx=5*dir;ball.vy=-3;
+ b.x=c.width/2;b.y=120;b.vx=5*dir;b.vy=-3;
 }
 reset();
 
-function score(side){
- if(side==='p') ps++; else as++;
- if((ps>=goal||as>=goal)&&Math.abs(ps-as)>=2){state='gameover';return;}
- reset(side==='p'?1:-1);
+function collide(o){
+ let dx=b.x-o.x,dy=b.y-o.y,d=Math.hypot(dx,dy)||1,m=b.r+o.r;
+ if(d<m){
+  let nx=dx/d,ny=dy/d;
+  b.x=o.x+nx*m;b.y=o.y+ny*m;
+  let dot=(b.vx-o.vx)*nx+(b.vy-o.vy)*ny;
+  if(dot<0){b.vx-=2*dot*nx;b.vy-=2*dot*ny;}
+ }
 }
 
-function hit(b){
- let dx=ball.x-b.x,dy=ball.y-b.y;
- let d=Math.hypot(dx,dy)||1;
- let m=ball.r+b.r;
- if(d<m){
-   let nx=dx/d,ny=dy/d;
-   ball.x=b.x+nx*m;
-   ball.y=b.y+ny*m;
-
-   let impact=(ball.vx-b.vx)*nx+(ball.vy-b.vy)*ny;
-   if(impact<0){
-      ball.vx-=2*impact*nx;
-      ball.vy-=2*impact*ny;
-   }
- }
+function point(w){
+ if(w=="p")ps++;else as++;
+ if((ps>=goal||as>=goal)&&Math.abs(ps-as)>=2){state="gameover";return;}
+ reset(w=="p"?1:-1);
 }
 
 function update(){
- if(state!=='play') return;
+ if(state!="play")return;
 
- if(L)p.vx=-7;
- else if(R)p.vx=7;
- else p.vx*=0.82;
-
- if(J&&p.y>=G()-1){p.vy=-13;J=false;}
-
+ p.vx=Math.max(-8,Math.min(8,dragDX*0.15));
  p.vy+=0.55;p.x+=p.vx;p.y+=p.vy;
  if(p.y>G()){p.y=G();p.vy=0;}
- p.x=Math.max(p.r,Math.min(NX()-30-p.r,p.x));
+ p.x=Math.max(p.r,Math.min(N()-30-p.r,p.x));
 
- let sp={Easy:2,Medium:3.5,Hard:5.5}[difficulty];
- let reaction={Easy:120,Medium:50,Hard:0}[difficulty];
+ let predict=b.x+b.vx*18;
+ let sp={Easy:2,Medium:4,Hard:6}[difficulty];
+ if(difficulty=="Easy") predict-=100;
+ if(difficulty=="Medium") predict-=30;
 
- let target=ball.x;
- if(difficulty==="Easy") target-=120;
- if(difficulty==="Medium") target-=50;
-
- if(target>ai.x+reaction) ai.vx=sp;
- else if(target<ai.x-reaction) ai.vx=-sp;
+ if(predict>ai.x+10) ai.vx=sp;
+ else if(predict<ai.x-10) ai.vx=-sp;
  else ai.vx*=0.8;
 
- if(ball.y<ai.y-80 && ai.y>=G()-1){
-    let chance={Easy:.35,Medium:.7,Hard:.95}[difficulty];
-    if(Math.random()<chance) ai.vy=-12;
+ if(b.y<ai.y-70 && ai.y>=G()-1){
+   let chance={Easy:.3,Medium:.7,Hard:.95}[difficulty];
+   if(Math.random()<chance) ai.vy=-12;
  }
 
- ai.vy+=0.55; ai.x+=ai.vx; ai.y+=ai.vy;
+ ai.vy+=0.55;ai.x+=ai.vx;ai.y+=ai.vy;
  if(ai.y>G()){ai.y=G();ai.vy=0;}
- ai.x=Math.max(NX()+30+ai.r,Math.min(c.width-ai.r,ai.x));
+ ai.x=Math.max(N()+30+ai.r,Math.min(c.width-ai.r,ai.x));
 
- ball.vy+=0.32;
- ball.x+=ball.vx;
- ball.y+=ball.vy;
+ b.vy+=0.34;b.x+=b.vx;b.y+=b.vy;
 
- if(ball.x<ball.r){ball.x=ball.r;ball.vx=Math.abs(ball.vx);}
- if(ball.x>c.width-ball.r){ball.x=c.width-ball.r;ball.vx=-Math.abs(ball.vx);}
- if(ball.y<ball.r){ball.y=ball.r;ball.vy=Math.abs(ball.vy);}
+ if(b.x<b.r){b.x=b.r;b.vx=Math.abs(b.vx);}
+ if(b.x>c.width-b.r){b.x=c.width-b.r;b.vx=-Math.abs(b.vx);}
+ if(b.y<b.r){b.y=b.r;b.vy=Math.abs(b.vy);}
 
- // new anti-stick net
- let nx=NX();
- let netTop=G()-140;
+ let nx=N(),top=G()-140;
 
- // side collision
- if(ball.y>netTop && ball.y<G()+10){
-   if(ball.x+ball.r>nx-8 && ball.x<nx){
-      ball.x=nx-ball.r-10;
-      ball.vx=-Math.abs(ball.vx)-0.5;
+ if(b.y>top && b.y<G()+10){
+   if(b.x+b.r>nx-8 && b.x<nx){
+      b.x=nx-b.r-14;b.vx=-Math.abs(b.vx)-1;
    }
-   if(ball.x-ball.r<nx+8 && ball.x>nx){
-      ball.x=nx+ball.r+10;
-      ball.vx=Math.abs(ball.vx)+0.5;
+   if(b.x-b.r<nx+8 && b.x>nx){
+      b.x=nx+b.r+14;b.vx=Math.abs(b.vx)+1;
    }
  }
 
- // top cap collision
- let dx=ball.x-nx;
- let dy=ball.y-netTop;
- let d=Math.hypot(dx,dy);
- if(d<ball.r+10){
-    let nxv=dx/(d||1), nyv=dy/(d||1);
-    ball.x=nx+nxv*(ball.r+10);
-    ball.y=netTop+nyv*(ball.r+10);
-    ball.vx+=nxv*2;
-    ball.vy+=nyv*2;
- }
+ collide(p); collide(ai);
 
- hit(p); hit(ai);
-
- if(ball.y+ball.r>G()){
-   if(ball.x<NX()) score('a');
-   else score('p');
+ if(b.y+b.r>G()){
+   if(b.x<nx) point("a"); else point("p");
  }
 }
 
-function blob(b,col){
+function blob(o,col){
  x.fillStyle="rgba(0,0,0,.15)";
- x.beginPath();x.ellipse(b.x,b.y+8,b.r,12,0,0,7);x.fill();
-
+ x.beginPath();x.ellipse(o.x,o.y+8,o.r,10,0,0,7);x.fill();
  x.fillStyle=col;
- x.beginPath();x.arc(b.x,b.y,b.r,Math.PI,0);x.fill();
-
- let eye=ball.x>b.x?12:-4;
- x.fillStyle="#fff";
- x.beginPath();x.arc(b.x+eye,b.y-22,9,0,7);x.fill();
-
- x.fillStyle="#000";
- x.beginPath();x.arc(b.x+eye+3,b.y-22,4,0,7);x.fill();
+ x.beginPath();x.arc(o.x,o.y,o.r,Math.PI,0);x.fill();
 }
 
-function btn(xp,yp,w,h,t,a){
- x.fillStyle=a?"#ffd54f":"#fff";
- x.fillRect(xp,yp,w,h);
- x.strokeRect(xp,yp,w,h);
- x.fillStyle="#000";
- x.font="24px Arial";
- x.textAlign="center";
- x.fillText(t,xp+w/2,yp+33);
+function button(X,Y,W,H,t){
+ x.fillStyle="#fff";x.fillRect(X,Y,W,H);
+ x.strokeRect(X,Y,W,H);
+ x.fillStyle="#000";x.font="24px Arial";x.textAlign="center";
+ x.fillText(t,X+W/2,Y+33);
 }
 
 function draw(){
  x.clearRect(0,0,c.width,c.height);
 
- if(state==='menu'){
-   x.fillStyle="#fff";
-   x.font="bold 42px Arial";
-   x.textAlign="center";
-   x.fillText("IRFANVOLLEY BETA",c.width/2,90);
-
-   btn(c.width/2-100,140,200,50,"Easy",difficulty==="Easy");
-   btn(c.width/2-100,210,200,50,"Medium",difficulty==="Medium");
-   btn(c.width/2-100,280,200,50,"Hard",difficulty==="Hard");
-
-   x.fillStyle="#00c853";
-   x.fillRect(c.width/2-130,370,260,70);
-   x.fillStyle="#fff";
-   x.font="36px Arial";
-   x.fillText("PLAY",c.width/2,418);
+ if(state=="menu"){
+   x.fillStyle="#fff";x.font="bold 44px Arial";x.textAlign="center";
+   x.fillText("IRFANVOLLEY GAMMA",c.width/2,90);
+   button(c.width/2-100,150,200,50,"Easy");
+   button(c.width/2-100,220,200,50,"Medium");
+   button(c.width/2-100,290,200,50,"Hard");
+   x.fillStyle="#ffd54f";x.fillRect(c.width/2-120,380,240,70);
+   x.fillStyle="#000";x.fillText("PLAY",c.width/2,425);
    return;
  }
 
- x.fillStyle="#d9c27a";
- x.fillRect(0,G(),c.width,100);
+ x.fillStyle="#d9c27a";x.fillRect(0,G(),c.width,100);
+ x.fillStyle="#fff";x.fillRect(N()-8,G()-140,16,140);
 
- x.fillStyle="#fff";
- x.fillRect(NX()-8,G()-140,16,140);
- x.beginPath();
- x.arc(NX(),G()-140,10,0,7);
- x.fill();
+ blob(p,"#1565c0"); blob(ai,"#d32f2f");
 
- blob(p,"#1565c0");
- blob(ai,"#d32f2f");
+ x.fillStyle="yellow";
+ x.beginPath();x.arc(b.x,b.y,b.r,0,7);x.fill();
 
- x.fillStyle="#ffeb3b";
- x.beginPath();x.arc(ball.x,ball.y,ball.r,0,7);x.fill();
-
- x.fillStyle="#000";
- x.font="32px Arial";
- x.textAlign="center";
+ x.fillStyle="#000";x.font="30px Arial";
  x.fillText(ps+" : "+as,c.width/2,40);
 
- // larger controls
- x.globalAlpha=.35;
- x.fillStyle="#000";
- x.fillRect(20,c.height-150,110,110);
- x.fillRect(150,c.height-150,110,110);
- x.fillRect(c.width-130,c.height-150,110,110);
- x.globalAlpha=1;
-
- x.fillStyle="#fff";
- x.fillText("◀",75,c.height-85);
- x.fillText("▶",205,c.height-85);
- x.fillText("▲",c.width-75,c.height-85);
-
- if(state==='gameover'){
-   x.fillStyle="rgba(0,0,0,.7)";
-   x.fillRect(0,0,c.width,c.height);
-   x.fillStyle="#fff";
-   x.font="50px Arial";
-   x.fillText(ps>as?"YOU WIN":"BOT WINS",c.width/2,c.height/2);
+ if(state=="gameover"){
+   x.fillStyle="rgba(0,0,0,.7)";x.fillRect(0,0,c.width,c.height);
+   x.fillStyle="#fff";x.font="44px Arial";
+   x.fillText(ps>as?"YOU WIN":"BOT WINS",c.width/2,c.height/2-30);
+   button(c.width/2-120,c.height/2+10,240,60,"Play Again");
  }
 }
 
-function loop(){update();draw();requestAnimationFrame(loop)} loop();
+function loop(){update();draw();requestAnimationFrame(loop)}loop();
 
-function tap(xp,yp){
- if(state==='menu'){
-   if(yp>140&&yp<190)difficulty='Easy';
-   if(yp>210&&yp<260)difficulty='Medium';
-   if(yp>280&&yp<330)difficulty='Hard';
-   if(yp>370&&yp<440){ps=0;as=0;reset();state='play';}
- }
- if(state==='gameover'){state='menu';}
+function menuTap(y){
+ if(y>150&&y<200)difficulty="Easy";
+ if(y>220&&y<270)difficulty="Medium";
+ if(y>290&&y<340)difficulty="Hard";
+ if(y>380&&y<450){ps=0;as=0;reset();state="play";}
 }
 
-function touch(e){
+c.addEventListener("touchstart",e=>{
+ let t=e.touches[0];
+ if(state=="menu"){menuTap(t.clientY);return;}
+ touchStartX=t.clientX;touchStartY=t.clientY;
+},{passive:false});
+
+c.addEventListener("touchmove",e=>{
+ let t=e.touches[0];
+ dragDX=t.clientX-touchStartX;
+
+ let dy=t.clientY-touchStartY;
+ if(dy<-60 && p.y>=G()-1){
+   p.vy=-13;
+   touchStartY=t.clientY;
+ }
  e.preventDefault();
- let ts=e.touches;
- L=R=false;
+},{passive:false});
 
- for(let t of ts){
-   let X=t.clientX,Y=t.clientY;
+c.addEventListener("touchend",()=>{dragDX=0;});
 
-   if(state==='menu'){tap(X,Y);continue;}
-
-   if(X<140&&Y>c.height-170)L=true;
-   if(X>140&&X<280&&Y>c.height-170)R=true;
-   if(X>c.width-150&&Y>c.height-170)J=true;
+c.addEventListener("click",e=>{
+ if(state=="gameover"){
+   ps=0;as=0;reset();state="menu";
  }
-}
-
-addEventListener('touchstart',touch,{passive:false});
-addEventListener('touchmove',touch,{passive:false});
-addEventListener('touchend',()=>{L=R=false;},{passive:false});
-addEventListener('click',e=>tap(e.clientX,e.clientY));
-
-</script>
-</body>
-</html>
+});
+</script></body></html>
